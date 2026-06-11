@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#06040f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="MS League">
+    <meta name="description" content="Mettlestate × EA FC Mobile League — Live Standings">
+    <title>Mettlestate × EA FC Mobile</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Syne:wght@400;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* ======================================================
+           DESIGN SYSTEM — Deep Space Glassmorphism / Mobile-First
+           ====================================================== */
+        :root {
+            --bg:         #06040f;
+            --surface:    rgba(255,255,255,0.04);
+            --surface-hi: rgba(255,255,255,0.07);
+            --border:     rgba(255,255,255,0.08);
+            --border-hi:  rgba(139,92,246,0.4);
+            --purple:     #8b5cf6;
+            --gold:       #f59e0b;
+            --green:      #10b981;
+            --red:        #ef4444;
+            --text:       #e2e8f0;
+            --muted:      #64748b;
+            --win:        #10b981;
+            --draw:       #f59e0b;
+            --loss:       #ef4444;
+            --sat: env(safe-area-inset-top,    0px);
+            --sab: env(safe-area-inset-bottom, 0px);
+            --sal: env(safe-area-inset-left,   0px);
+            --sar: env(safe-area-inset-right,  0px);
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: 'Syne', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            min-height: 100dvh;
+            overflow-x: hidden;
+            padding-bottom: calc(32px + var(--sab));
+        }
+
+        /* ---- BACKGROUND ---- */
+        #starfield { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+
+        .grid-overlay {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none;
+            background-image:
+                linear-gradient(rgba(139,92,246,0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(139,92,246,0.025) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        .orb { position: fixed; border-radius: 50%; filter: blur(100px); pointer-events: none; z-index: 0; }
+        .orb-1 { width:60vw; height:60vw; top:-10vw; left:-20vw; background:rgba(124,58,237,0.14); }
+        .orb-2 { width:50vw; height:50vw; bottom:-10vw; right:-15vw; background:rgba(59,130,246,0.10); }
+
+        /* ---- STICKY HEADER ---- */
+        .sticky-header {
+            position: sticky; top: 0; z-index: 100;
+            background: rgba(6,4,15,0.88);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            padding: calc(var(--sat) + 12px) calc(16px + var(--sar)) 12px calc(16px + var(--sal));
+            display: flex; align-items: center; gap: 12px;
+        }
+
+        .logo-sm {
+            width: 32px; height: 32px; object-fit: contain; flex-shrink: 0;
+            filter: drop-shadow(0 0 8px rgba(139,92,246,0.6));
+        }
+
+        .header-text { flex: 1; min-width: 0; }
+
+        .sticky-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.82rem; font-weight: 900; letter-spacing: 0.05em;
+            background: linear-gradient(90deg, #c4b5fd, #38bdf8);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+
+        .sticky-sub {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.58rem; color: var(--muted); letter-spacing: 0.1em; margin-top: 1px;
+        }
+
+        .live-pill {
+            display: flex; align-items: center; gap: 5px;
+            padding: 4px 10px; border-radius: 999px;
+            background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.56rem; color: var(--green); white-space: nowrap; flex-shrink: 0;
+        }
+        .live-pill::before {
+            content: ''; width: 5px; height: 5px; border-radius: 50%;
+            background: var(--green); animation: pulse 2s infinite;
+        }
+
+        /* ---- LAYOUT ---- */
+        .app {
+            position: relative; z-index: 1;
+            padding: 14px calc(12px + var(--sar)) 0 calc(12px + var(--sal));
+            max-width: 680px; margin: 0 auto;
+        }
+
+        /* ---- PULL-TO-REFRESH ---- */
+        .ptr-indicator {
+            text-align: center; padding: 8px 0 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.6rem; color: var(--purple); letter-spacing: 0.1em;
+            opacity: 0; transition: opacity 0.2s;
+        }
+        .ptr-indicator.visible { opacity: 1; }
+
+        /* ---- LAST UPDATED ---- */
+        .update-row {
+            display: flex; align-items: center; justify-content: center; gap: 5px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.6rem; color: var(--muted); margin-bottom: 14px;
+            animation: fadeUp 0.45s ease both;
+        }
+        .update-row i { font-size: 0.52rem; }
+
+        /* ---- PODIUM ---- */
+        .podium-wrap { margin-bottom: 12px; animation: fadeUp 0.4s ease 0.05s both; }
+
+        .podium {
+            display: grid; grid-template-columns: 1fr 1.15fr 1fr; gap: 8px; align-items: end;
+        }
+
+        .podium-card {
+            border-radius: 14px; padding: 14px 8px 12px; text-align: center;
+            border: 1px solid var(--border); background: var(--surface);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        }
+        .podium-card.rank-1 { border-color:rgba(245,158,11,0.4); background:linear-gradient(160deg,rgba(245,158,11,0.14),rgba(245,158,11,0.04)); padding-top:18px; }
+        .podium-card.rank-2 { border-color:rgba(148,163,184,0.25); background:rgba(148,163,184,0.06); }
+        .podium-card.rank-3 { border-color:rgba(180,120,80,0.25);  background:rgba(180,120,80,0.06); }
+
+        .podium-medal { font-size: 1.6rem; display: block; margin-bottom: 6px; }
+        .podium-name  { font-family:'Orbitron',sans-serif; font-size:0.62rem; font-weight:700; letter-spacing:0.04em; word-break:break-word; }
+        .podium-pts   { font-family:'JetBrains Mono',monospace; font-size:0.64rem; color:var(--muted); margin-top:4px; }
+        .podium-pts strong { color:var(--gold); }
+
+        /* ---- SECTION LABEL ---- */
+        .section-label {
+            font-family: 'Orbitron', sans-serif; font-size: 0.62rem; font-weight: 700;
+            letter-spacing: 0.16em; color: var(--muted); margin: 18px 4px 10px;
+            display: flex; align-items: center; gap: 8px;
+            animation: fadeUp 0.4s ease 0.1s both;
+        }
+        .section-label::after { content:''; flex:1; height:1px; background:var(--border); }
+
+        /* ============================================================
+           MOBILE PLAYER CARDS
+           ============================================================ */
+        .player-list { display: flex; flex-direction: column; gap: 8px; }
+
+        .player-card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 14px; padding: 13px 14px;
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            display: grid; grid-template-columns: 36px 1fr auto;
+            gap: 0 12px; align-items: center;
+            animation: fadeUp 0.35s ease both;
+            -webkit-user-select: none; user-select: none;
+        }
+        .player-card.zone-champ  { border-color: rgba(139,92,246,0.22); }
+        .player-card.zone-danger { border-color: rgba(239,68,68,0.22); }
+
+        .pc-rank {
+            display: flex; align-items: center; justify-content: center;
+            width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+            font-family: 'Orbitron', sans-serif; font-size: 0.78rem; font-weight: 900;
+            border: 1px solid var(--border); color: var(--muted);
+        }
+        .pc-rank.pos-1 { background:rgba(245,158,11,0.15); border-color:rgba(245,158,11,0.45); color:#f59e0b; }
+        .pc-rank.pos-2 { background:rgba(148,163,184,0.1);  border-color:rgba(148,163,184,0.35); color:#cbd5e1; }
+        .pc-rank.pos-3 { background:rgba(180,120,80,0.1);   border-color:rgba(180,120,80,0.35);  color:#cd9161; }
+
+        .pc-info { min-width: 0; }
+
+        .pc-name {
+            font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.9rem;
+            color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+
+        .pc-username {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; color: var(--muted);
+            margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+
+        .pc-stats { display: flex; gap: 5px; margin-top: 7px; flex-wrap: wrap; }
+
+        .pc-stat {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.58rem; color: var(--muted);
+            background: rgba(255,255,255,0.035); border: 1px solid var(--border);
+            border-radius: 5px; padding: 2px 6px;
+        }
+        .pc-stat span { color: #94a3b8; font-weight: 500; }
+
+        .pc-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+
+        .pc-pts { font-family:'Orbitron',sans-serif; font-size:1.25rem; font-weight:900; color:#c4b5fd; line-height:1; }
+        .pc-pts-label { font-family:'JetBrains Mono',monospace; font-size:0.5rem; color:var(--muted); letter-spacing:0.1em; text-align:right; margin-top:-1px; }
+
+        .pc-form { display: flex; gap: 3px; }
+        .f-w, .f-d, .f-l {
+            width: 16px; height: 16px; border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace; font-size: 0.55rem; font-weight: 700;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .f-w { background:rgba(16,185,129,0.2);  color:var(--win);  border:1px solid rgba(16,185,129,0.35); }
+        .f-d { background:rgba(245,158,11,0.2);  color:var(--draw); border:1px solid rgba(245,158,11,0.35); }
+        .f-l { background:rgba(239,68,68,0.2);   color:var(--loss); border:1px solid rgba(239,68,68,0.35); }
+
+        .gd-pos { color: var(--green); }
+        .gd-neg { color: var(--red); }
+
+        /* ============================================================
+           DESKTOP TABLE — hidden by default, shown ≥ 680px
+           ============================================================ */
+        .desktop-table-wrap { display: none; }
+
+        /* ---- LEGEND ---- */
+        .legend {
+            display: flex; gap: 14px; padding: 12px 4px; flex-wrap: wrap;
+            animation: fadeUp 0.4s ease 0.15s both;
+        }
+        .legend-item { display:flex; align-items:center; gap:6px; font-family:'JetBrains Mono',monospace; font-size:0.59rem; color:var(--muted); }
+        .legend-dot { width:8px; height:8px; border-radius:3px; }
+        .legend-dot.champ  { background:rgba(139,92,246,0.55); }
+        .legend-dot.danger { background:rgba(239,68,68,0.55); }
+
+        /* ---- SKELETON ---- */
+        .skeleton {
+            background: linear-gradient(90deg, var(--surface) 25%, var(--surface-hi) 50%, var(--surface) 75%);
+            background-size: 200% 100%; animation: shimmer 1.4s infinite;
+        }
+        .sk-card { height: 76px; border-radius: 14px; margin-bottom: 8px; }
+
+        /* ---- EMPTY STATE ---- */
+        .empty-state {
+            text-align:center; padding:60px 20px; color:var(--muted);
+            font-family:'JetBrains Mono',monospace; font-size:0.8rem; line-height:1.9;
+        }
+        .empty-state i { display:block; font-size:2.2rem; margin-bottom:14px; opacity:0.25; }
+
+        /* ---- FOOTER ---- */
+        footer {
+            text-align:center; margin-top:36px; padding:0 16px;
+            font-family:'JetBrains Mono',monospace; font-size:0.59rem;
+            color:var(--muted); letter-spacing:0.07em; line-height:2.1;
+            animation: fadeUp 0.5s ease 0.2s both;
+        }
+        footer a { color:var(--purple); text-decoration:none; }
+
+        /* ---- ANIMATIONS ---- */
+        @keyframes fadeUp   { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
+        @keyframes pulse    { 0%,100%{opacity:1} 50%{opacity:0.35} }
+        @keyframes shimmer  { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+        /* ============================================================
+           DESKTOP — ≥ 680px
+           ============================================================ */
+        @media (min-width: 680px) {
+            .sticky-title { font-size: 1rem; }
+            .logo-sm { width: 40px; height: 40px; }
+            .podium-medal { font-size: 2rem; }
+            .podium-name  { font-size: 0.72rem; }
+
+            .player-list        { display: none; }
+            .desktop-table-wrap { display: block; overflow-x: auto; }
+
+            table { width: 100%; border-collapse: collapse; }
+
+            thead th {
+                font-family:'Orbitron',sans-serif; font-size:0.6rem; font-weight:700;
+                letter-spacing:0.12em; color:var(--muted); padding:12px 10px;
+                text-align:center; border-bottom:1px solid var(--border); white-space:nowrap;
+            }
+            thead th:nth-child(2) { text-align: left; }
+
+            tbody tr { border-bottom:1px solid rgba(255,255,255,0.04); transition:background 0.15s; }
+            tbody tr:hover { background: var(--surface-hi); }
+            tbody tr:last-child { border-bottom: none; }
+            tbody tr.zone-champ  { background: rgba(139,92,246,0.04); }
+            tbody tr.zone-danger { background: rgba(239,68,68,0.04); }
+
+            tbody td {
+                font-family:'JetBrains Mono',monospace; font-size:0.78rem;
+                padding:11px 10px; text-align:center; color:#94a3b8;
+            }
+            tbody td:nth-child(2) { text-align: left; }
+
+            .pos-badge {
+                display:inline-flex; align-items:center; justify-content:center;
+                width:28px; height:28px; border-radius:7px;
+                font-family:'Orbitron',sans-serif; font-size:0.65rem; font-weight:700;
+                border:1px solid var(--border); color:var(--muted);
+            }
+            .pos-badge.pos-1 { background:rgba(245,158,11,0.15); border-color:rgba(245,158,11,0.45); color:#f59e0b; }
+            .pos-badge.pos-2 { background:rgba(148,163,184,0.1);  border-color:rgba(148,163,184,0.35); color:#cbd5e1; }
+            .pos-badge.pos-3 { background:rgba(180,120,80,0.1);   border-color:rgba(180,120,80,0.35);  color:#cd9161; }
+
+            .dt-name     { color:var(--text); font-weight:500; font-size:0.82rem; }
+            .dt-username { font-size:0.62rem; color:var(--muted); margin-top:2px; }
+            .pts-cell    { color:#c4b5fd; font-weight:700; font-size:0.92rem; }
+
+            .form-badges { display:flex; gap:3px; justify-content:center; }
+            .form-w, .form-d, .form-l {
+                display:inline-flex; align-items:center; justify-content:center;
+                width:18px; height:18px; border-radius:4px; font-size:0.58rem; font-weight:700;
+                font-family:'JetBrains Mono',monospace;
+            }
+            .form-w { background:rgba(16,185,129,0.2); color:var(--win);  border:1px solid rgba(16,185,129,0.3); }
+            .form-d { background:rgba(245,158,11,0.2); color:var(--draw); border:1px solid rgba(245,158,11,0.3); }
+            .form-l { background:rgba(239,68,68,0.2);  color:var(--loss); border:1px solid rgba(239,68,68,0.3); }
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="starfield"></canvas>
+<div class="grid-overlay"></div>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<!-- STICKY HEADER -->
+<header class="sticky-header">
+    <img src="assets/logo.png" alt="Mettlestate" class="logo-sm" onerror="this.style.display='none'">
+    <div class="header-text">
+        <div class="sticky-title">METTLESTATE × EA FC MOBILE</div>
+        <div class="sticky-sub">SEASON 2 · LEAGUE STANDINGS</div>
+    </div>
+    <div class="live-pill">LIVE</div>
+</header>
+
+<!-- MAIN -->
+<div class="app">
+
+    <div class="ptr-indicator" id="ptr-indicator"><i class="fas fa-sync-alt"></i> &nbsp;REFRESHING…</div>
+
+    <div class="update-row">
+        <i class="fas fa-clock"></i>
+        Updated: <span id="last-updated">—</span>
+        &nbsp;·&nbsp; auto-refreshes every 5 min
+    </div>
+
+    <!-- STANDINGS -->
+    <div id="standings-root">
+        <div class="sk-card skeleton"></div>
+        <div class="sk-card skeleton" style="animation-delay:0.08s"></div>
+        <div class="sk-card skeleton" style="animation-delay:0.16s"></div>
+        <div class="sk-card skeleton" style="animation-delay:0.24s"></div>
+        <div class="sk-card skeleton" style="animation-delay:0.32s"></div>
+    </div>
+
+    <footer>
+        Powered by <a href="https://mettlestate.com" target="_blank">mettlestate.com</a>
+        &nbsp;·&nbsp; #MettlestateLeague &nbsp;·&nbsp; By Astral Reign
+        <br>
+        <i class="fas fa-shield-halved" style="color:var(--purple)"></i>
+        &nbsp;Read-only view — <a href="/" style="color:var(--purple)">Admin Panel</a>
+    </footer>
+
+</div>
+
+<script>
+/* ============================================================
+   PUBLIC LEADERBOARD — Mobile-First Read-only Viewer
+   ============================================================ */
+
+// ---- STARFIELD ----
+(function () {
+    const canvas = document.getElementById('starfield');
+    const ctx    = canvas.getContext('2d');
+    let stars    = [];
+
+    function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+
+    function initStars(n) {
+        stars = [];
+        for (let i = 0; i < n; i++) {
+            stars.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                r: Math.random() * 1.1 + 0.2,
+                alpha: Math.random() * 0.55 + 0.1,
+                speed: Math.random() * 0.012 + 0.004,
+                phase: Math.random() * Math.PI * 2
+            });
+        }
+    }
+
+    let t = 0;
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        t += 0.007;
+        stars.forEach(s => {
+            const a = s.alpha * (0.5 + 0.5 * Math.sin(t * s.speed * 60 + s.phase));
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(200,190,255,${a})`;
+            ctx.fill();
+        });
+        requestAnimationFrame(draw);
+    }
+
+    resize(); initStars(160); draw();
+    window.addEventListener('resize', () => { resize(); initStars(160); });
+})();
+
+// ---- PULL-TO-REFRESH ----
+let ptrStart = 0, ptrActive = false;
+const ptrEl  = document.getElementById('ptr-indicator');
+
+document.addEventListener('touchstart', e => {
+    if (window.scrollY === 0) ptrStart = e.touches[0].clientY;
+}, { passive: true });
+
+document.addEventListener('touchmove', e => {
+    if (ptrStart && window.scrollY === 0 && e.touches[0].clientY - ptrStart > 60 && !ptrActive) {
+        ptrActive = true;
+        ptrEl.classList.add('visible');
+    }
+}, { passive: true });
+
+document.addEventListener('touchend', () => {
+    if (ptrActive) {
+        ptrActive = false;
+        loadData().finally(() => ptrEl.classList.remove('visible'));
+    }
+    ptrStart = 0;
+}, { passive: true });
+
+// ---- DATA ----
+async function loadData() {
+    try {
+        const res  = await fetch('/api/leaderboard?_=' + Date.now());
+        if (!res.ok) throw new Error('Not found');
+        const data = await res.json();
+        renderStandings(data.players || []);
+        const lu = document.getElementById('last-updated');
+        lu.textContent = data.updatedAt
+            ? new Date(data.updatedAt).toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })
+            : new Date().toLocaleTimeString('en-ZA');
+    } catch (e) {
+        document.getElementById('standings-root').innerHTML =
+            '<div class="empty-state"><i class="fas fa-satellite-dish"></i>Could not load league data.<br>Check back soon.</div>';
+    }
+}
+
+// ---- RENDER STANDINGS ----
+function renderStandings(players) {
+    const root = document.getElementById('standings-root');
+
+    if (!players.length) {
+        root.innerHTML = '<div class="empty-state"><i class="fas fa-trophy"></i>No players registered yet.<br>Check back once the league kicks off.</div>';
+        return;
+    }
+
+    const sorted = [...players].sort((a, b) => {
+        if (b.points !== a.points) return b.points - a.points;
+        const gdA = (a.gf||0)-(a.ga||0), gdB = (b.gf||0)-(b.ga||0);
+        return gdA !== gdB ? gdB - gdA : (b.gf||0) - (a.gf||0);
+    });
+
+    // ---- PODIUM ----
+    let podiumHTML = '';
+    if (sorted.length >= 3) {
+        const [first, second, third] = sorted;
+        podiumHTML = `
+        <div class="podium-wrap">
+            <div class="podium">
+                <div class="podium-card rank-2">
+                    <span class="podium-medal">🥈</span>
+                    <div class="podium-name">${esc(second.username)}</div>
+                    <div class="podium-pts">2nd · <strong>${second.points||0}</strong> pts</div>
+                </div>
+                <div class="podium-card rank-1">
+                    <span class="podium-medal">🥇</span>
+                    <div class="podium-name">${esc(first.username)}</div>
+                    <div class="podium-pts">1st · <strong>${first.points||0}</strong> pts</div>
+                </div>
+                <div class="podium-card rank-3">
+                    <span class="podium-medal">🥉</span>
+                    <div class="podium-name">${esc(third.username)}</div>
+                    <div class="podium-pts">3rd · <strong>${third.points||0}</strong> pts</div>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    // ---- MOBILE CARDS ----
+    const mobileCards = sorted.map((p, i) => {
+        const rank     = i + 1;
+        const posClass = rank <= 3 ? `pos-${rank}` : '';
+        const zone     = rank <= 3 ? 'zone-champ' : (sorted.length >= 5 && rank >= sorted.length - 1 ? 'zone-danger' : '');
+        const gd       = (p.gf||0) - (p.ga||0);
+        const gdLabel  = gd > 0 ? `+${gd}` : `${gd}`;
+        const form     = buildFormMobile(p.form || []);
+        return `
+        <div class="player-card ${zone}" style="animation-delay:${i * 0.04}s">
+            <div class="pc-rank ${posClass}">${rank}</div>
+            <div class="pc-info">
+                <div class="pc-name">${esc(p.name)}</div>
+                <div class="pc-username">${esc(p.username)}</div>
+                <div class="pc-stats">
+                    <div class="pc-stat">P <span>${p.played||0}</span></div>
+                    <div class="pc-stat">W <span>${p.wins||0}</span></div>
+                    <div class="pc-stat">D <span>${p.draws||0}</span></div>
+                    <div class="pc-stat">L <span>${p.losses||0}</span></div>
+                    <div class="pc-stat">GD <span>${gdLabel}</span></div>
+                </div>
+            </div>
+            <div class="pc-right">
+                <div>
+                    <div class="pc-pts">${p.points||0}</div>
+                    <div class="pc-pts-label">PTS</div>
+                </div>
+                <div class="pc-form">${form}</div>
+            </div>
+        </div>`;
+    }).join('');
+
+    // ---- DESKTOP TABLE ROWS ----
+    const tableRows = sorted.map((p, i) => {
+        const rank     = i + 1;
+        const posClass = rank <= 3 ? `pos-${rank}` : '';
+        const zone     = rank <= 3 ? 'zone-champ' : (sorted.length >= 5 && rank >= sorted.length - 1 ? 'zone-danger' : '');
+        const gd       = (p.gf||0) - (p.ga||0);
+        const gdStr    = gd > 0 ? `<span class="gd-pos">+${gd}</span>` : gd < 0 ? `<span class="gd-neg">${gd}</span>` : `<span>0</span>`;
+        return `
+        <tr class="${zone}">
+            <td><span class="pos-badge ${posClass}">${rank}</span></td>
+            <td><div class="dt-name">${esc(p.name)}</div><div class="dt-username">${esc(p.username)}</div></td>
+            <td>${p.played||0}</td>
+            <td>${p.wins||0}</td>
+            <td>${p.draws||0}</td>
+            <td>${p.losses||0}</td>
+            <td>${p.gf||0}</td>
+            <td>${p.ga||0}</td>
+            <td>${gdStr}</td>
+            <td class="pts-cell">${p.points||0}</td>
+            <td><div class="form-badges">${buildFormDesktop(p.form||[])}</div></td>
+        </tr>`;
+    }).join('');
+
+    const legendDanger = sorted.length >= 5
+        ? '<div class="legend-item"><div class="legend-dot danger"></div> Relegation zone</div>' : '';
+
+    root.innerHTML = `
+        ${podiumHTML}
+        <div class="section-label"><i class="fas fa-trophy"></i> STANDINGS · ${sorted.length} PLAYERS</div>
+        <div class="player-list">${mobileCards}</div>
+        <div class="desktop-table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>POS</th><th>PLAYER</th>
+                        <th title="Played">P</th><th title="Wins">W</th>
+                        <th title="Draws">D</th><th title="Losses">L</th>
+                        <th title="Goals For">GF</th><th title="Goals Against">GA</th>
+                        <th title="Goal Difference">GD</th><th title="Points">PTS</th>
+                        <th title="Form (last 5)">FORM</th>
+                    </tr>
+                </thead>
+                <tbody>${tableRows}</tbody>
+            </table>
+        </div>
+        <div class="legend">
+            <div class="legend-item"><div class="legend-dot champ"></div> Championship zone</div>
+            ${legendDanger}
+        </div>`;
+}
+
+// ---- HELPERS ----
+function buildFormMobile(form) {
+    return (form||[]).slice(-5).map(r =>
+        r==='W'?'<span class="f-w">W</span>':r==='D'?'<span class="f-d">D</span>':'<span class="f-l">L</span>'
+    ).join('');
+}
+
+function buildFormDesktop(form) {
+    return (form||[]).slice(-5).map(r =>
+        r==='W'?'<span class="form-w">W</span>':r==='D'?'<span class="form-d">D</span>':'<span class="form-l">L</span>'
+    ).join('');
+}
+
+function esc(str) {
+    return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ---- INIT ----
+loadData();
+setInterval(loadData, 5 * 60 * 1000);
+</script>
+</body>
+</html>
