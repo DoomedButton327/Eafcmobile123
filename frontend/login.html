@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Admin Login — Mettlestate × EA FC Mobile</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Orbitron:wght@700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:       #050810;
+    --surface:  #0c111e;
+    --card:     #111827;
+    --border:   #1e2a40;
+    --cyan:     #00e5ff;
+    --accent:   #0070f3;
+    --text:     #e8eaf0;
+    --muted:    #5a6a85;
+    --success:  #00e676;
+    --danger:   #ff4d4d;
+    --radius:   8px;
+    --font-ui:  'Barlow Condensed', sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+    --font-head:'Orbitron', sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-ui); }
+
+  /* ── Background grid ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: .35;
+    pointer-events: none;
+  }
+  body::after {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0,229,255,.07) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  /* ── Layout ── */
+  .login-page {
+    position: relative; z-index: 1;
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 24px 16px;
+  }
+
+  /* ── Branding ── */
+  .brand {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  .brand-logo {
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    margin-bottom: 8px;
+  }
+  .brand-icon {
+    width: 48px; height: 48px;
+    background: linear-gradient(135deg, var(--cyan), var(--accent));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+    box-shadow: 0 0 20px rgba(0,229,255,.3);
+  }
+  .brand-title {
+    font-family: var(--font-head);
+    font-size: 22px;
+    letter-spacing: 1px;
+    color: var(--cyan);
+    text-shadow: 0 0 20px rgba(0,229,255,.4);
+    line-height: 1;
+  }
+  .brand-subtitle {
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+  .brand-sub2 {
+    font-size: 12px;
+    color: var(--muted);
+    opacity: .7;
+    margin-top: 6px;
+  }
+
+  /* ── Card ── */
+  .login-card {
+    width: 100%;
+    max-width: 380px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-top: 2px solid var(--cyan);
+    border-radius: var(--radius);
+    padding: 32px 28px;
+    box-shadow: 0 0 40px rgba(0,229,255,.05), 0 20px 60px rgba(0,0,0,.5);
+    position: relative;
+    overflow: hidden;
+  }
+  .login-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--cyan), var(--accent));
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+
+  .card-heading {
+    font-family: var(--font-head);
+    font-size: 14px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 24px;
+    text-align: center;
+  }
+
+  /* ── Form ── */
+  .field {
+    margin-bottom: 18px;
+  }
+  .field label {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 7px;
+    font-family: var(--font-mono);
+  }
+  .field input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 15px;
+    padding: 11px 14px;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .field input:focus {
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 3px rgba(0,229,255,.1);
+  }
+  .field input::placeholder { color: var(--muted); opacity: .6; }
+
+  /* ── Submit button ── */
+  .login-btn {
+    width: 100%;
+    padding: 13px;
+    background: linear-gradient(135deg, var(--cyan), var(--accent));
+    color: #000;
+    border: none;
+    border-radius: var(--radius);
+    font-family: var(--font-head);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity .2s, transform .1s, box-shadow .2s;
+    margin-top: 6px;
+    box-shadow: 0 0 20px rgba(0,229,255,.2);
+  }
+  .login-btn:hover  { opacity: .9; box-shadow: 0 0 30px rgba(0,229,255,.35); }
+  .login-btn:active { transform: scale(.98); }
+  .login-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* ── Error message ── */
+  .error-msg {
+    display: none;
+    background: rgba(255,77,77,.1);
+    border: 1px solid rgba(255,77,77,.3);
+    color: var(--danger);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    font-size: 13px;
+    margin-top: 14px;
+    text-align: center;
+  }
+  .error-msg.visible { display: block; }
+
+  /* ── Footer ── */
+  .login-footer {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--muted);
+    opacity: .6;
+    font-family: var(--font-mono);
+  }
+
+  /* ── Loading spinner inside button ── */
+  .btn-spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(0,0,0,.3);
+    border-top-color: #000;
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Pulse glow on card load ── */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .login-card { animation: fadeInUp .4s ease; }
+  .brand      { animation: fadeInUp .3s ease; }
+</style>
+</head>
+<body>
+<div class="login-page">
+
+  <div class="brand">
+    <div class="brand-logo">
+      <div class="brand-icon">⚽</div>
+      <div>
+        <div class="brand-title">METTLESTATE</div>
+        <div class="brand-subtitle">EA FC Mobile League</div>
+      </div>
+    </div>
+    <div class="brand-sub2">Admin Portal · Staff Only</div>
+  </div>
+
+  <div class="login-card">
+    <div class="card-heading">Sign In</div>
+
+    <form id="login-form" onsubmit="handleLogin(event)">
+      <div class="field">
+        <label for="username">Username</label>
+        <input type="text" id="username" name="username"
+               autocomplete="username" placeholder="your username"
+               autofocus required/>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password"
+               autocomplete="current-password" placeholder="••••••••"
+               required/>
+      </div>
+      <button type="submit" class="login-btn" id="login-btn">Sign In</button>
+    </form>
+
+    <div class="error-msg" id="error-msg"></div>
+  </div>
+
+  <div class="login-footer">Mettlestate × EA FC Mobile v2.0 · Powered by Render</div>
+</div>
+
+<script>
+  // Redirect if already logged in
+  (function() {
+    const token = sessionStorage.getItem('eafc_token');
+    if (token) {
+      // Verify token is still valid
+      fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } })
+        .then(r => { if (r.ok) window.location.replace('/'); })
+        .catch(() => {});
+    }
+  })();
+
+  async function handleLogin(e) {
+    e.preventDefault();
+    const btn     = document.getElementById('login-btn');
+    const errEl   = document.getElementById('error-msg');
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+
+    errEl.classList.remove('visible');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="btn-spinner"></span>Signing in…';
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ username, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Login failed');
+      }
+      sessionStorage.setItem('eafc_token', data.token);
+      sessionStorage.setItem('eafc_user',  JSON.stringify(data.user));
+      window.location.replace('/');
+    } catch (err) {
+      errEl.textContent = err.message || 'Login failed — check your credentials.';
+      errEl.classList.add('visible');
+      btn.disabled = false;
+      btn.textContent = 'Sign In';
+    }
+  }
+</script>
+</body>
+</html>
