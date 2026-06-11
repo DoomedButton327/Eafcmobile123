@@ -1,0 +1,48 @@
+# ================================================================
+# METTLESTATE × EA FC MOBILE LEAGUE
+# Render.com deployment configuration
+# ================================================================
+#
+# HOW TO DEPLOY:
+# 1. Push this repo to GitHub
+# 2. Go to render.com → New → Blueprint
+# 3. Connect your GitHub repo
+# 4. Render will auto-detect this file and create everything
+#
+# ================================================================
+
+services:
+  - type: web
+    name: eafc-league
+    env: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/leaderboard
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: eafc-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 8h
+      # ── Set these in the Render dashboard after first deploy ──
+      # OWNER_USERNAME  → your login username (default: tyron)
+      # OWNER_PASSWORD  → your login password
+      # OWNER_DISPLAY_NAME → your display name
+      - key: OWNER_USERNAME
+        value: tyron
+      - key: OWNER_DISPLAY_NAME
+        value: Tyron (Owner)
+      # !! Set OWNER_PASSWORD in Render dashboard — do not commit it !!
+
+databases:
+  - name: eafc-db
+    databaseName: eafc_league
+    plan: free
+    region: oregon
