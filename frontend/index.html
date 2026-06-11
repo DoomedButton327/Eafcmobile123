@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#050a0e">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Mettlestate × EA FC Mobile League</title>
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/admin.css">
+  <link rel="stylesheet" href="css/animations.css">
+  <style>
+    /* ── Loading overlay ── */
+    #loading-overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      background: var(--bg, #050a0e);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 16px;
+    }
+    .loading-spinner {
+      width: 40px; height: 40px;
+      border: 3px solid rgba(0,229,255,.15);
+      border-top-color: var(--cyan, #00e5ff);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-family: var(--font-mono, monospace); font-size: .78rem; color: var(--muted, #5a6a85); letter-spacing: 2px; }
+
+    /* ── User bar in topbar ── */
+    .user-bar { display: flex; align-items: center; gap: 8px; }
+    .user-display-name { font-family: var(--font-mono, monospace); font-size: .75rem; color: var(--text, #e2e8f0); }
+    .user-role-badge { font-size: .6rem; letter-spacing: 1.5px; padding: 2px 6px; border-radius: 4px; font-weight: 700; text-transform: uppercase; }
+    .role-owner { background: rgba(0,229,255,.15); color: var(--cyan, #00e5ff); border: 1px solid rgba(0,229,255,.3); }
+    .role-admin { background: rgba(0,112,243,.15); color: #60a0ff; border: 1px solid rgba(0,112,243,.3); }
+    .btn-logout { font-size: .7rem; padding: 4px 10px; background: transparent; border: 1px solid var(--border, #1e2a40); color: var(--muted, #5a6a85); border-radius: 5px; cursor: pointer; font-family: var(--font-mono, monospace); letter-spacing: 1px; transition: border-color .2s, color .2s; }
+    .btn-logout:hover { border-color: rgba(255,77,77,.5); color: var(--danger, #ff4d4d); }
+
+    /* ── Audit log styles ── */
+    .audit-table-header { display: grid; grid-template-columns: 140px 100px 1fr 1.5fr; gap: 8px; padding: 8px 12px; font-size: .68rem; letter-spacing: 1px; text-transform: uppercase; color: var(--muted, #5a6a85); font-family: var(--font-mono, monospace); border-bottom: 1px solid var(--border, #1e2a40); margin-bottom: 4px; }
+    .audit-row { display: grid; grid-template-columns: 140px 100px 1fr 1.5fr; gap: 8px; padding: 8px 12px; font-size: .78rem; border-bottom: 1px solid rgba(255,255,255,.04); align-items: start; transition: background .15s; }
+    .audit-row:hover { background: rgba(255,255,255,.02); }
+    .audit-ts { font-family: var(--font-mono, monospace); font-size: .7rem; color: var(--muted, #5a6a85); }
+    .audit-user { font-weight: 600; color: var(--cyan, #00e5ff); font-size: .78rem; }
+    .audit-action { font-size: .78rem; font-weight: 600; }
+    .audit-details { font-size: .73rem; color: var(--muted, #5a6a85); word-break: break-word; }
+    .action-success { color: #00e676; }
+    .action-danger { color: #ff4d4d; }
+    .action-warn { color: #ffab00; }
+    .action-info { color: var(--cyan, #00e5ff); }
+    .audit-load-more { width: 100%; margin-top: 12px; }
+    #audit-total-count { font-size: .72rem; color: var(--muted, #5a6a85); font-family: var(--font-mono, monospace); }
+
+    /* ── User list styles ── */
+    .user-row { display: flex; align-items: flex-start; gap: 12px; padding: 12px; border: 1px solid var(--border, #1e2a40); border-radius: 8px; margin-bottom: 8px; transition: border-color .2s; }
+    .user-row:hover { border-color: rgba(0,229,255,.2); }
+    .user-inactive { opacity: .5; }
+    .user-row-avatar { width: 36px; height: 36px; min-width: 36px; border-radius: 8px; background: linear-gradient(135deg, var(--cyan, #00e5ff), #0070f3); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: #000; }
+    .user-row-info { flex: 1; min-width: 0; }
+    .user-row-name { font-weight: 700; font-size: .85rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .you-badge { font-size: .6rem; padding: 1px 5px; background: rgba(0,229,255,.15); color: var(--cyan, #00e5ff); border-radius: 3px; font-family: var(--font-mono, monospace); }
+    .user-row-meta { font-size: .75rem; color: var(--muted, #5a6a85); margin-top: 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .user-row-login { font-size: .7rem; color: var(--muted, #5a6a85); font-family: var(--font-mono, monospace); margin-top: 3px; }
+    .user-row-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; flex-wrap: wrap; }
+    .role-badge { font-size: .6rem; padding: 2px 6px; border-radius: 4px; font-weight: 700; text-transform: uppercase; font-family: var(--font-mono, monospace); }
+    .role-badge.role-owner { background: rgba(0,229,255,.15); color: var(--cyan, #00e5ff); border: 1px solid rgba(0,229,255,.3); }
+    .role-badge.role-admin { background: rgba(0,112,243,.15); color: #60a0ff; border: 1px solid rgba(0,112,243,.3); }
+
+    /* ── Player management cards ── */
+    #player-management-list { display: flex; flex-direction: column; gap: 6px; }
+    .player-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border, #1e2a40); border-radius: 8px; cursor: pointer; transition: border-color .15s, background .15s; }
+    .player-row:hover { border-color: rgba(0,229,255,.25); background: rgba(0,229,255,.02); }
+    .player-suspended { opacity: .6; border-color: rgba(255,77,77,.3) !important; }
+    .player-row-main { flex: 1; min-width: 0; }
+    .player-row-name { font-weight: 700; font-size: .85rem; display: flex; align-items: center; gap: 6px; }
+    .player-row-meta { font-size: .72rem; color: var(--muted, #5a6a85); font-family: var(--font-mono, monospace); margin-top: 2px; }
+    .player-row-stats { display: flex; gap: 5px; flex-wrap: wrap; }
+    .stat-chip { font-size: .68rem; padding: 2px 6px; background: rgba(255,255,255,.05); border-radius: 4px; font-family: var(--font-mono, monospace); color: var(--muted, #5a6a85); }
+    .player-row-actions { display: flex; gap: 5px; }
+    .susp-badge { font-size: .6rem; padding: 2px 5px; background: rgba(255,77,77,.15); color: #ff4d4d; border-radius: 3px; font-family: var(--font-mono, monospace); border: 1px solid rgba(255,77,77,.3); }
+
+    /* ── Score log / result cards ── */
+    .result-card { padding: 12px; border: 1px solid var(--border, #1e2a40); border-radius: 8px; margin-bottom: 8px; }
+    .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .result-date { font-size: .72rem; color: var(--muted, #5a6a85); font-family: var(--font-mono, monospace); display: flex; align-items: center; gap: 8px; }
+    .result-logged-by, .result-edited-by { font-size: .68rem; color: var(--muted, #5a6a85); }
+    .result-actions { display: flex; gap: 4px; }
+    .result-teams { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .result-team { flex: 1; font-weight: 700; font-size: .85rem; }
+    .away-team { text-align: right; }
+    .team-winner { color: var(--cyan, #00e5ff); }
+    .result-score { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono, monospace); }
+    .score-num { font-size: 1.2rem; font-weight: 900; }
+    .score-sep { color: var(--muted, #5a6a85); }
+    .score-win { color: var(--cyan, #00e5ff); }
+    .res-home { border-left: 3px solid var(--cyan, #00e5ff); }
+    .res-away { border-right: 3px solid var(--cyan, #00e5ff); }
+    .res-draw { border-left: 3px solid #ffab00; }
+    .result-img-wrap { margin-top: 8px; }
+    .result-screenshot { max-width: 100%; border-radius: 6px; cursor: pointer; max-height: 200px; object-fit: contain; }
+    .result-logged-by::before { content: '· by '; }
+    .result-edited-by::before { content: '· edited '; }
+
+    /* ── Image preview ── */
+    .img-preview-wrap { position: relative; display: inline-block; }
+    .score-img-preview { max-width: 100%; max-height: 150px; border-radius: 6px; margin-top: 6px; }
+    .img-preview-clear { position: absolute; top: 10px; right: 6px; }
+
+    /* ── Fixture cards ── */
+    .fixture-date-group { margin-bottom: 16px; }
+    .fixture-date-header { font-size: .72rem; letter-spacing: 2px; text-transform: uppercase; color: var(--muted, #5a6a85); font-family: var(--font-mono, monospace); padding: 4px 0 8px; border-bottom: 1px solid var(--border, #1e2a40); margin-bottom: 8px; }
+    .fixture-card { padding: 10px 12px; border: 1px solid var(--border, #1e2a40); border-radius: 8px; margin-bottom: 6px; }
+    .fixture-postponed { border-color: rgba(255,165,0,.3); opacity: .75; }
+    .fixture-teams { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .fixture-team { flex: 1; font-weight: 700; font-size: .85rem; }
+    .fixture-team.away { text-align: right; }
+    .fixture-vs { font-size: .7rem; color: var(--muted, #5a6a85); font-family: var(--font-mono, monospace); letter-spacing: 2px; }
+    .fixture-postponed-badge { font-size: .7rem; color: #ffab00; margin-bottom: 6px; font-family: var(--font-mono, monospace); }
+    .fixture-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    /* ── Modal ── */
+    .modal { display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,.7); align-items: center; justify-content: center; padding: 16px; }
+    .modal.active { display: flex; }
+    .modal-inner { background: var(--card, #111827); border: 1px solid var(--border, #1e2a40); border-radius: 10px; padding: 20px; max-width: 420px; width: 100%; max-height: 80vh; overflow-y: auto; position: relative; }
+    .modal-title { font-weight: 700; font-size: .95rem; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    .modal-close { position: absolute; top: 12px; right: 12px; background: none; border: none; color: var(--muted, #5a6a85); cursor: pointer; padding: 4px; }
+    .modal-close:hover { color: var(--text, #e2e8f0); }
+
+    /* ── Connection status ── */
+    #connection-status { font-size: .72rem; font-family: var(--font-mono, monospace); }
+
+    /* ── Loading/empty states ── */
+    .loading-state, .empty-state { padding: 24px; text-align: center; color: var(--muted, #5a6a85); font-size: .82rem; font-family: var(--font-mono, monospace); }
+  </style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div id="loading-overlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">CONNECTING TO DATABASE…</div>
+</div>
+
+<!-- Ambient orbs -->
+<div class="orb-field" aria-hidden="true">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+</div>
+
+<!-- Toast area -->
+<div id="toast-area" aria-live="polite"></div>
+
+<!-- Lightbox (for match screenshots) -->
+<div id="lightbox" class="lightbox" role="dialog" aria-modal="true">
+  <button class="lightbox-close" onclick="closeLightbox()" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  <img id="lightbox-img" src="" alt="Match evidence">
+  <div id="lightbox-caption" class="lightbox-caption"></div>
+</div>
+
+<!-- ════ EDIT RESULT MODAL ════ -->
+<div id="edit-result-modal" class="player-modal" role="dialog" aria-modal="true">
+  <div class="player-modal-inner" style="max-width:420px">
+    <button class="modal-close-btn" onclick="closeEditResultModal()" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <div style="padding:1.5rem">
+      <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1.25rem">
+        <div style="width:36px;height:36px;border-radius:8px;background:var(--theme-accent-glow,rgba(139,92,246,.2));display:flex;align-items:center;justify-content:center;color:var(--theme-accent,#8b5cf6)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4z"/></svg>
+        </div>
+        <div>
+          <div style="font-weight:700;font-size:1rem;color:var(--theme-text-primary,#e2e8f0)">Edit Result</div>
+          <div id="edit-result-date" style="font-size:.75rem;color:var(--theme-text-muted,#94a3b8)"></div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:.75rem;align-items:center;margin-bottom:1.25rem">
+        <div style="text-align:center">
+          <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--theme-text-muted,#94a3b8);margin-bottom:.35rem">Home</div>
+          <div id="edit-result-home-label" style="font-weight:700;font-size:.9rem;color:var(--theme-text-primary,#e2e8f0);margin-bottom:.5rem;word-break:break-all"></div>
+          <input id="edit-home-goals" class="form-input" type="number" min="0" max="99" placeholder="0" style="text-align:center;font-size:1.5rem;font-weight:800;padding:.5rem;width:100%">
+        </div>
+        <div style="font-size:1.25rem;color:var(--theme-text-muted,#94a3b8);margin-top:1.5rem">–</div>
+        <div style="text-align:center">
+          <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--theme-text-muted,#94a3b8);margin-bottom:.35rem">Away</div>
+          <div id="edit-result-away-label" style="font-weight:700;font-size:.9rem;color:var(--theme-text-primary,#e2e8f0);margin-bottom:.5rem;word-break:break-all"></div>
+          <input id="edit-away-goals" class="form-input" type="number" min="0" max="99" placeholder="0" style="text-align:center;font-size:1.5rem;font-weight:800;padding:.5rem;width:100%">
+        </div>
+      </div>
+      <p style="font-size:.75rem;color:var(--theme-text-muted,#94a3b8);margin-bottom:1rem;text-align:center">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        All player points and stats will be fully recalculated.
+      </p>
+      <div style="display:flex;gap:.75rem">
+        <button class="btn-primary" id="save-edit-btn" style="flex:1" onclick="saveEditedResult()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Save Changes
+        </button>
+        <button class="btn-secondary" onclick="closeEditResultModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Player Profile Modal -->
+<div id="player-modal" class="player-modal" role="dialog" aria-modal="true">
+  <div class="player-modal-inner">
+    <button class="modal-close-btn" onclick="closePlayerModal()" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <div id="player-modal-content"></div>
+  </div>
+</div>
+
+<!-- Postpone Modal -->
+<div id="postpone-modal" class="modal" role="dialog" aria-modal="true">
+  <div class="modal-inner">
+    <button class="modal-close" onclick="closeModal('postpone-modal')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <div class="modal-title">⏸ Postpone Fixture</div>
+    <div id="postpone-fixture-label" style="font-size:.8rem;color:var(--muted);margin-bottom:12px;font-family:var(--font-mono)"></div>
+    <div class="form-group">
+      <label class="form-label">Who is postponing?</label>
+      <select class="form-select" id="postpone-player-sel"></select>
+    </div>
+    <div class="action-row">
+      <button class="btn-primary" onclick="confirmPostpone()">Confirm Postpone</button>
+      <button class="btn-secondary" onclick="closeModal('postpone-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Forfeit Modal -->
+<div id="forfeit-modal" class="modal" role="dialog" aria-modal="true">
+  <div class="modal-inner">
+    <button class="modal-close" onclick="closeModal('forfeit-modal')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <div class="modal-title">🚫 Forfeit Fixture</div>
+    <div id="forfeit-fixture-label" style="font-size:.8rem;color:var(--muted);margin-bottom:12px;font-family:var(--font-mono)"></div>
+    <div class="form-group">
+      <label class="form-label">Who is forfeiting?</label>
+      <select class="form-select" id="forfeit-player-sel"></select>
+    </div>
+    <p style="font-size:.73rem;color:var(--muted);margin-bottom:12px">Result will be logged as 3–0 to the other player.</p>
+    <div class="action-row">
+      <button class="btn-primary btn-danger-outline" onclick="confirmForfeit()">Confirm Forfeit</button>
+      <button class="btn-secondary" onclick="closeModal('forfeit-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reschedule Modal -->
+<div id="reschedule-modal" class="modal" role="dialog" aria-modal="true">
+  <div class="modal-inner">
+    <button class="modal-close" onclick="closeModal('reschedule-modal')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <div class="modal-title">📅 Reschedule Fixture</div>
+    <div id="reschedule-fixture-label" style="font-size:.8rem;color:var(--muted);margin-bottom:12px;font-family:var(--font-mono)"></div>
+    <div class="form-group">
+      <label class="form-label">New Date</label>
+      <input class="form-input" id="reschedule-date-input" type="date">
+    </div>
+    <div class="action-row">
+      <button class="btn-primary" onclick="confirmReschedule()">Update Date</button>
+      <button class="btn-secondary" onclick="closeModal('reschedule-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── App shell ── -->
+<div id="app">
+
+  <!-- Bottom / Sidebar Nav -->
+  <nav class="bottom-nav" role="navigation" aria-label="Main navigation">
+    <button class="nav-btn" data-tab="standings-tab" aria-label="Standings">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 00-2 2v1a2 2 0 002 2h2"/><path d="M18 9h2a2 2 0 012 2v1a2 2 0 01-2 2h-2"/><path d="M6 3h12v13a3 3 0 01-3 3H9a3 3 0 01-3-3V3z"/><path d="M9 21v-3M15 21v-3M9 21h6"/></svg>
+      <span class="nav-label">Standings</span>
+    </button>
+    <button class="nav-btn" data-tab="fixtures-tab" aria-label="Fixtures">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M8 2v4M16 2v4"/><circle cx="12" cy="15" r="2.5"/><path d="M9.5 13l-2-2M14.5 13l2-2M9.5 17l-2 2M14.5 17l2 2"/></svg>
+      <span class="nav-label">Fixtures</span>
+    </button>
+    <button class="nav-btn" data-tab="results-tab" aria-label="Results">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M7 15h2M11 15h2M15 15h2"/><path d="M7 13h2M11 13h2M15 13h2"/></svg>
+      <span class="nav-label">Results</span>
+    </button>
+    <button class="nav-btn" data-tab="players-tab" aria-label="Players">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="7" r="3"/><path d="M2 21v-2a5 5 0 015-5h2"/><circle cx="17" cy="9" r="3"/><path d="M13 21v-2a4 4 0 014-4h.5a4 4 0 014 4v2"/></svg>
+      <span class="nav-label">Players</span>
+    </button>
+    <button class="nav-btn" data-tab="calendar-tab" aria-label="Calendar">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="M8 13h1v1H8zM11.5 13h1v1h-1zM15 13h1v1h-1z" fill="currentColor" stroke="none"/><path d="M8 16.5h1v1H8zM11.5 16.5h1v1h-1z" fill="currentColor" stroke="none"/></svg>
+      <span class="nav-label">Calendar</span>
+    </button>
+    <button class="nav-btn" data-tab="rules-tab" aria-label="Rules">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>
+      <span class="nav-label">Rules</span>
+    </button>
+    <button class="nav-btn" data-tab="admin-tab" aria-label="Admin">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+      <span class="nav-label">Admin</span>
+    </button>
+  </nav>
+
+  <!-- Main content -->
+  <div class="main-content" role="main">
+
+    <!-- Top bar -->
+    <header class="topbar">
+      <div class="topbar-logo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><path d="M13 2L4.5 13.5H11L10 22L20.5 9.5H14L13 2Z"/></svg>
+        <span>METTLESTATE</span>
+      </div>
+      <div class="topbar-right">
+        <span id="connection-status" style="color:var(--muted)">● Connecting…</span>
+        <div class="user-bar">
+          <span id="current-user-name" class="user-display-name"></span>
+          <span id="current-user-role" class="user-role-badge"></span>
+          <button class="btn-logout" onclick="logout()">LOGOUT</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Live bar -->
+    <div id="live-bar" class="live-bar">
+      <div class="live-bar-dot"></div>
+      <span id="live-bar-text">SEASON IN PROGRESS</span>
+    </div>
+
+    <!-- Sync bar -->
+    <div id="sync-bar" class="sync-bar hidden" aria-live="polite">
+      <span id="sync-icon"></span>
+      <span id="sync-msg"></span>
+    </div>
+
+    <!-- ══ STANDINGS TAB ══ -->
+    <section id="standings-tab" class="tab-content">
+      <div class="section-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 00-2 2v1a2 2 0 002 2h2"/><path d="M18 9h2a2 2 0 012 2v1a2 2 0 01-2 2h-2"/><path d="M6 3h12v13a3 3 0 01-3 3H9a3 3 0 01-3-3V3z"/><path d="M9 21v-3M15 21v-3M9 21h6"/></svg> League Standings</div>
+      <div id="standings-subtitle" class="standings-subtitle"></div>
+      <div class="stats-ticker">
+        <div class="ticker-card"><div class="ticker-val" id="stat-players">0</div><div class="ticker-lbl">PLAYERS</div></div>
+        <div class="ticker-card"><div class="ticker-val" id="stat-matches">0</div><div class="ticker-lbl">MATCHES</div></div>
+        <div class="ticker-card"><div class="ticker-val" id="stat-goals">0</div><div class="ticker-lbl">GOALS</div></div>
+        <div class="ticker-card"><div class="ticker-val" id="stat-pending">0</div><div class="ticker-lbl">PENDING</div></div>
+      </div>
+      <div id="podium-area" class="podium-area"></div>
+      <div class="leaderboard-wrap glass">
+        <table class="leaderboard-table">
+          <thead><tr><th>#</th><th>Player</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>Pts</th><th>Form</th></tr></thead>
+          <tbody id="leaderboardBody"></tbody>
+        </table>
+      </div>
+      <div class="export-btn-row">
+        <button class="btn-secondary" onclick="exportStandingsImage()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Export Image</button>
+      </div>
+    </section>
+
+    <!-- ══ FIXTURES TAB ══ -->
+    <section id="fixtures-tab" class="tab-content">
+      <div class="section-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg> Fixtures</div>
+      <div class="fixture-search-row">
+        <input class="form-input" id="fixture-filter-input" placeholder="Search fixtures…" autocomplete="off" oninput="renderFixtures()">
+      </div>
+      <div id="fixturesContainer"></div>
+      <div class="export-btn-row">
+        <button class="btn-secondary" onclick="exportFixturesImage()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Export Image</button>
+      </div>
+    </section>
+
+    <!-- ══ RESULTS TAB ══ -->
+    <section id="results-tab" class="tab-content">
+      <div class="section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="12 6.5 14.5 9 13.5 12 10.5 12 9.5 9"/><path d="M9.5 9L7 10.5M14.5 9L17 10.5M10.5 12L9 15M13.5 12L15 15M9 15h6"/></svg> Results</div>
+      <div class="results-search-row">
+        <input class="form-input" id="results-search-input" placeholder="Search results…" autocomplete="off" oninput="renderResults()">
+        <input type="hidden" id="results-limit" value="50">
+      </div>
+      <div id="resultsContainer"></div>
+    </section>
+
+    <!-- ══ PLAYERS TAB ══ -->
+    <section id="players-tab" class="tab-content">
+      <div class="section-title">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> Players
+        <span id="player-count-label" class="badge badge-acid" style="margin-left:auto"></span>
+      </div>
+      <div class="players-search-row">
+        <input class="form-input" id="player-search-input" placeholder="Search players…" autocomplete="off" oninput="renderPlayerManagement()">
+      </div>
+      <div id="player-management-list"></div>
+    </section>
+
+    <!-- ══ CALENDAR TAB ══ -->
+    <section id="calendar-tab" class="tab-content">
+      <div class="section-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg> Calendar</div>
+      <div class="sast-clock-widget glass">
+        <div id="sast-clock"><span class="clock-time">--:--:--</span><span class="clock-label">SAST · Loading…</span></div>
+      </div>
+      <div class="calendar-header">
+        <button class="cal-nav-btn" onclick="calPrev()" aria-label="Previous month"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+        <span id="cal-month-label" class="cal-month-label"></span>
+        <button class="cal-nav-btn" onclick="calNext()" aria-label="Next month"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+      </div>
+      <div id="cal-grid" class="cal-grid"></div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;">
+        <span style="display:flex;align-items:center;gap:5px;font-size:.72rem;color:var(--muted);font-family:var(--font-mono)"><span class="cal-dot dot-holiday" style="display:inline-block"></span> SA Holiday</span>
+        <span style="display:flex;align-items:center;gap:5px;font-size:.72rem;color:var(--muted);font-family:var(--font-mono)"><span class="cal-dot dot-event" style="display:inline-block"></span> Mettlestate Event</span>
+        <span style="display:flex;align-items:center;gap:5px;font-size:.72rem;color:var(--muted);font-family:var(--font-mono)"><span class="cal-dot dot-fixture" style="display:inline-block"></span> Fixtures</span>
+      </div>
+      <div class="upcoming-panel">
+        <div class="section-title" style="font-size:.95rem"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Upcoming 30 Days</div>
+        <div id="upcoming-list"></div>
+      </div>
+    </section>
+
+    <!-- ══ RULES TAB ══ -->
+    <section id="rules-tab" class="tab-content" id="rules-content">
+      <div class="section-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg> League Rules</div>
+      <div class="rules-hero">
+        <span class="rules-pts-badge pts-win"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Win = 3 pts</span>
+        <span class="rules-pts-badge pts-draw"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg> Draw = 1 pt</span>
+        <span class="rules-pts-badge pts-loss"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Loss = 0 pts</span>
+        <span style="font-family:var(--font-mono);font-size:.72rem;color:var(--muted);margin-left:auto">Tiebreak: GD → GF</span>
+      </div>
+      <div class="rules-section"><div class="rules-section-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><polyline points="9 14 11 16 15 12"/></svg> Fixtures & Scheduling</div>
+        <ul class="rules-list"><li>Fixtures are generated by the admin and posted in the Discord server.</li><li>All matches must be played within the fixture week unless postponed.</li><li>Scheduled dates are in SAST (GMT+2). Check the calendar for public holidays.</li><li>Do not play on Mettlestate event days unless fixtures are confirmed.</li></ul></div>
+      <div class="rules-section"><div class="rules-section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="12 6.5 14.5 9 13.5 12 10.5 12 9.5 9"/><path d="M9.5 9L7 10.5M14.5 9L17 10.5M10.5 12L9 15M13.5 12L15 15M9 15h6"/></svg> Result Submission</div>
+        <ul class="rules-list"><li>Results must be submitted with a screenshot of the final scoreline.</li><li>Tag @Tyron or @Astral in the Discord with your result screenshot.</li><li>Both players must agree on the scoreline before it is logged.</li><li>Disputed results will be reviewed by the admin — decision is final.</li></ul></div>
+      <div class="rules-section"><div class="rules-section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Postponements</div>
+        <ul class="rules-list"><li>Each player has <strong>20 postponement tokens</strong> for the season.</li><li>Postponing a match costs 1 token. Tokens cannot be transferred.</li><li>Attempting to postpone with 0 tokens results in an automatic 3–0 forfeit.</li><li>To postpone, tag @Tyron or @Astral in Discord and mention the fixture.</li></ul></div>
+      <div class="rules-section"><div class="rules-section-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg> Prohibited Conduct</div>
+        <ul class="rules-list"><li>Unsportsmanlike behaviour, harassment, or trash talk will not be tolerated.</li><li>Using exploits, glitches, or modded accounts is grounds for immediate removal.</li><li>Colluding to manipulate standings is a permanent ban offence.</li></ul></div>
+      <div class="export-btn-row"><button class="btn-secondary" onclick="exportRulesImage()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Export Rules Image</button></div>
+    </section>
+
+    <!-- ══ ADMIN TAB ══ -->
+    <section id="admin-tab" class="tab-content">
+      <div class="section-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg> Admin Panel</div>
+
+      <div class="acc-grid">
+
+        <!-- ═══ LOG SCORE ═══ -->
+        <div class="acc-item acc-open">
+          <div class="acc-header" onclick="toggleAccordion('acc-log-score')">
+            <div class="acc-header-left">
+              <div class="acc-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>
+              <span class="acc-title">Log Score</span>
+            </div>
+            <svg class="acc-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="acc-body acc-open" id="acc-log-score">
+            <div class="acc-inner">
+              <div class="form-group">
+                <label class="form-label">Select Fixture</label>
+                <select class="form-select" id="scoreFixtureSelect"></select>
+              </div>
+              <div class="form-row">
+                <div class="form-group"><label class="form-label">Home Goals</label><input class="form-input" id="homeGoals" type="number" min="0" max="99" placeholder="0"></div>
+                <div class="form-group"><label class="form-label">Away Goals</label><input class="form-input" id="awayGoals" type="number" min="0" max="99" placeholder="0"></div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Evidence Screenshot (optional)</label>
+                <div class="file-input-row">
+                  <label class="file-input-label" for="scoreImageInput"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg> Choose Image</label>
+                  <input type="file" id="scoreImageInput" accept="image/*" onchange="handleImageFileSelect(this)">
+                </div>
+                <div id="image-preview" style="margin-top:6px"></div>
+              </div>
+              <button id="log-score-btn" class="btn-primary w-full" onclick="submitLogScore()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Log Result</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ GENERATE FIXTURES ═══ -->
+        <div class="acc-item">
+          <div class="acc-header" onclick="toggleAccordion('acc-gen-fixtures')">
+            <div class="acc-header-left">
+              <div class="acc-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="8" height="8" rx="1.5"/><rect x="14" y="2" width="8" height="8" rx="1.5"/><rect x="2" y="14" width="8" height="8" rx="1.5"/><circle cx="18" cy="18" r="3.5"/></svg></div>
+              <span class="acc-title">Generate Fixtures</span>
+            </div>
+            <svg class="acc-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="acc-body" id="acc-gen-fixtures">
+            <div class="acc-inner">
+              <div class="form-group">
+                <label class="form-label">Mode</label>
+                <div class="radio-group">
+                  <label class="radio-label"><input type="radio" name="gen-mode" value="home-away" checked> Home & Away</label>
+                  <label class="radio-label"><input type="radio" name="gen-mode" value="single"> Single (once each)</label>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Start Date (optional)</label>
+                <input class="form-input" id="gen-start-date" type="date">
+              </div>
+              <button class="btn-primary w-full" onclick="submitGenerateFixtures()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.5"/><circle cx="8" cy="8" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r="1.2" fill="currentColor" stroke="none"/><circle cx="16" cy="8" r="1.2" fill="currentColor" stroke="none"/><circle cx="8" cy="16" r="1.2" fill="currentColor" stroke="none"/></svg> Generate Draw</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ MANUAL FIXTURE ═══ -->
+        <div class="acc-item">
+          <div class="acc-header" onclick="toggleAccordion('acc-manual-fixture')">
+            <div class="acc-header-left">
+              <div class="acc-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div>
+              <span class="acc-title">Manual Fixture</span>
+            </div>
+            <svg class="acc-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="acc-body" id="acc-manual-fixture">
+            <div class="acc-inner">
+              <datalist id="player-datalist"></datalist>
+              <div class="form-group"><label class="form-label">Home Player</label><input class="form-input" id="manualHome" list="player-datalist" placeholder="Username" autocomplete="off"></div>
+              <div class="form-group"><label class="form-label">Away Player</label><input class="form-input" id="manualAway" list="player-datalist" placeholder="Username" autocomplete="off"></div>
+              <div class="form-group"><label class="form-label">Date (optional)</label><input class="form-input" id="manualDate" type="date"></div>
+              <button class="btn-primary w-full" onclick="submitAddManualFixture()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Fixture</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ ADD PLAYER ═══ -->
+        <div class="acc-item">
+          <div class="acc-header" onclick="toggleAccordion('acc-add-player')">
+            <div class="acc-header-left">
+              <div class="acc-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg></div>
+              <span class="acc-title">Add Player</span>
+            </div>
+            <svg class="acc-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="acc-body" id="acc-add-player">
+            <div class="acc-inner">
+              <div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="newPlayerName" placeholder="Player name"></div>
+              <div class="form-group"><label class="form-label">In-Game Username</label><input class="form-input" id="newPlayerUsername" placeholder="EA FC username"></div>
+              <div class="form-group"><label class="form-label">WhatsApp Number</label><input class="form-input" id="newPlayerPhone" type="tel" placeholder="+27…"></div>
+              <button class="btn-primary w-full" onclick="submitAddPlayer()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg> Add Player</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ IMPORT PLAYERS ═══ -->
+        <div class="acc-item">
+          <div class="acc-header" onclick="toggleAccordion('acc-import-players')">
+            <div class="acc-header-left">
+              <div class="acc-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="12" y2="12"/><line x1="15" y1="15" x2="12" y2="12"/></svg></div>
+              <span class="acc-title">Import Players</span>
+            </div>
+            <svg class="acc-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="acc-body" id="acc-import-players">
+            <div class="acc-inner">
+              <div class="info-box">Format: one player per line<br><strong>Name, Username, Phone</strong></div>
+              <div class="file-input-row">
+                <label class="file-input-label" for="playerImport"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Choose .txt</label>
+                <input type="file" id="playerImport" accept=".txt">
+                <span class="file-name" id="file-chosen">No file chosen</span>
+              </div>
+              <button class="btn-primary w-full" onclick="importPlayersFromFile()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/></svg> Import</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ DISCORD WEBHOOK ═══ -->
+        <div class="acc-item">
+          <div class="acc-header" onclick="toggleAccordion('acc-discord')">
+            <div class="acc-header-left">
+              <div class="acc-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028 14.09 14.09 0 001.226-1.994.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z"/></svg></div>
+              <span class="acc-title">Discord Webhook</span>
+            </div>
+            <svg class="acc-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="acc-body" id="acc-discord">
+            <div class="acc-inner">
+              <p style="font-size:.78rem;color:var(--muted);margin-bottom:12px;line-height:1.5">Webhook URL is stored securely in the database and shared with all staff.</p>
+              <div class="form-group"><label class="form-label">Webhook URL</label><input class="form-input" id="discord-webhook-input" type="password" placeholder="https://discord.com/api/webhooks/…"></div>
+              <div class="action-row">
+                <button class="btn-primary" onclick="saveDiscordWebhook()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save</button>
+                <button class="btn-secondary" onclick="saveAndTestWebhook()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Save & Test</button>
+                <button class="btn-secondary" style="color:var(--red);border-color:rgba(255,45,85,.3)" onclick="document.getElementById('discord-webhook-input').value='';saveDiscordWebhook()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg> Clear</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ STAFF MANAGEMENT (owner only) ═══ -->
+        <div class="acc-item owner-only" id="user-management-section" style="display:none">
+          <div class="acc-header" onclick="toggleAccordion('acc-staff')">
+            <div class="acc-header-left">
+              <div class="acc-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="17" y1="11" x2="23" y2="11"/></svg></div>
+              <span class="acc-title">Staff Management</span>
+            </div>
+            <svg class="acc-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="acc-body" id="acc-staff">
+            <div class="acc-inner">
+              <div id="user-list" style="margin-bottom:16px"></div>
+              <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+                <div style="font-size:.75rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Add Staff Member</div>
+                <div class="form-group"><label class="form-label">Username</label><input class="form-input" id="new-user-username" placeholder="login username"></div>
+                <div class="form-group"><label class="form-label">Display Name</label><input class="form-input" id="new-user-display" placeholder="shown in the UI"></div>
+                <div class="form-group"><label class="form-label">Password</label><input class="form-input" id="new-user-password" type="password" placeholder="min 6 characters"></div>
+                <div class="form-group">
+                  <label class="form-label">Role</label>
+                  <select class="form-select" id="new-user-role">
+                    <option value="admin">Admin (can manage league)</option>
+                    <option value="owner">Owner (full access)</option>
+                  </select>
+                </div>
+                <button class="btn-primary w-full" onclick="addStaffMember()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Staff Member</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ ACTIVITY LOG ═══ -->
+        <div class="acc-item">
+          <div class="acc-header" onclick="toggleAccordion('acc-audit')">
+            <div class="acc-header-left">
+              <div class="acc-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div>
+              <span class="acc-title">Activity Log</span>
+            </div>
+            <svg class="acc-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="acc-body" id="acc-audit">
+            <div class="acc-inner">
+              <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
+                <input class="form-input" id="audit-user-filter" placeholder="Filter by user…" style="flex:1;min-width:120px">
+                <input class="form-input" id="audit-action-filter" placeholder="Filter by action…" style="flex:1;min-width:120px">
+                <button class="btn-secondary" onclick="loadAuditLog(true)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
+              </div>
+              <div style="display:flex;justify-content:flex-end;margin-bottom:6px"><span id="audit-total-count"></span></div>
+              <div class="audit-table-header"><span>Time (SAST)</span><span>User</span><span>Action</span><span>Details</span></div>
+              <div id="audit-log-container"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ ACCOUNT SETTINGS ═══ -->
+        <div class="acc-item">
+          <div class="acc-header" onclick="toggleAccordion('acc-account')">
+            <div class="acc-header-left">
+              <div class="acc-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/><path d="M18 8h4M22 6v4"/></svg></div>
+              <span class="acc-title">Account Settings</span>
+            </div>
+            <svg class="acc-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="acc-body" id="acc-account">
+            <div class="acc-inner">
+              <div style="font-size:.8rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Change Your Password</div>
+              <div class="form-group"><label class="form-label">Current Password</label><input class="form-input" id="change-pwd-current" type="password" placeholder="Current password"></div>
+              <div class="form-group"><label class="form-label">New Password</label><input class="form-input" id="change-pwd-new" type="password" placeholder="Min 6 characters"></div>
+              <div class="form-group"><label class="form-label">Confirm New Password</label><input class="form-input" id="change-pwd-confirm" type="password" placeholder="Repeat new password"></div>
+              <button class="btn-primary w-full" onclick="changeOwnPassword()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg> Change Password</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ SEASON SETTINGS ═══ -->
+        <div class="acc-item">
+          <div class="acc-header" onclick="toggleAccordion('acc-season')">
+            <div class="acc-header-left">
+              <div class="acc-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg></div>
+              <span class="acc-title">Season Settings</span>
+            </div>
+            <svg class="acc-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="acc-body" id="acc-season">
+            <div class="acc-inner">
+              <div class="form-group"><label class="form-label">Season Label (shown on posters)</label><input class="form-input" id="season-label-input" placeholder="EA FC MOBILE LEAGUE — SEASON 1"></div>
+              <button class="btn-secondary" onclick="saveSeasonLabel()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ WHATSAPP OCR ═══ -->
+        <div class="acc-item">
+          <div class="acc-header" onclick="toggleAccordion('acc-ocr')">
+            <div class="acc-header-left">
+              <div class="acc-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 00-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg></div>
+              <span class="acc-title">WhatsApp OCR</span>
+            </div>
+            <svg class="acc-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="acc-body" id="acc-ocr">
+            <div class="acc-inner">
+              <div class="form-group"><label class="form-label">Gemini API Key</label><input class="form-input" id="gemini-key-input" type="password" placeholder="AIza…"><span id="gemini-key-status"></span></div>
+              <button class="btn-secondary btn-sm" onclick="saveGeminiKey()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg> Save Key</button>
+              <hr class="acc-divider">
+              <div class="file-input-row">
+                <label class="file-input-label" for="whatsappImageInput"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg> Screenshot</label>
+                <input type="file" id="whatsappImageInput" accept="image/*">
+                <span class="file-name" id="whatsapp-file-chosen">No file</span>
+              </div>
+              <button class="btn-primary w-full" onclick="runWhatsAppOCR()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Analyse Screenshot</button>
+              <div id="ocr-status" class="status-row"></div>
+              <div id="ocr-results-area"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ THEME ═══ -->
+        <div class="acc-item">
+          <div class="acc-header" onclick="toggleAccordion('acc-theme')">
+            <div class="acc-header-left">
+              <div class="acc-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10c1.19 0 2.35-.21 3.43-.6a1.5 1.5 0 00-.43-2.93C13.5 18 12 16.5 12 14.5c0-2.49 2.01-4.5 4.5-4.5h.5A6 6 0 0012 2z"/></svg></div>
+              <span class="acc-title">Theme</span>
+            </div>
+            <svg class="acc-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="acc-body" id="acc-theme">
+            <div class="acc-inner"><div id="theme-grid" class="theme-grid"></div></div>
+          </div>
+        </div>
+
+        <!-- ═══ DATA MANAGEMENT ═══ -->
+        <div class="acc-item">
+          <div class="acc-header" onclick="toggleAccordion('acc-data')">
+            <div class="acc-header-left">
+              <div class="acc-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/></svg></div>
+              <span class="acc-title">Data Management</span>
+            </div>
+            <svg class="acc-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="acc-body" id="acc-data">
+            <div class="acc-inner">
+              <button class="btn-secondary w-full" onclick="downloadBackup()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0018 9h-1.26A8 8 0 103 16.29"/></svg> Export JSON Backup</button>
+              <div class="file-input-row" style="margin-top:10px">
+                <label class="file-input-label" for="importBackupInput"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/></svg> Restore Backup</label>
+                <input type="file" id="importBackupInput" accept=".json" onchange="importBackupFile(this)">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ DANGER ZONE ═══ -->
+        <div class="acc-item danger-zone">
+          <div class="acc-header" onclick="toggleAccordion('acc-danger')">
+            <div class="acc-header-left">
+              <div class="acc-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="10" r="2"/><circle cx="15" cy="10" r="2"/><path d="M4 18v3M8 18v3M16 18v3M20 18v3"/><path d="M12 2a8 8 0 00-8 8v4l-1 2h18l-1-2v-4a8 8 0 00-8-8z"/><line x1="8" y1="18" x2="16" y2="18"/></svg></div>
+              <span class="acc-title">Danger Zone</span>
+            </div>
+            <svg class="acc-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="acc-body" id="acc-danger">
+            <div class="acc-inner">
+              <div class="info-box" style="border-color:rgba(255,45,85,.3);color:var(--red)">⚠ These actions are <strong>permanent and cannot be undone</strong>.</div>
+              <button class="btn-secondary btn-danger w-full" style="margin-bottom:8px" onclick="resetAllStats()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 11-9-9"/><path d="M21 3v4h-4"/></svg> Recalculate All Stats</button>
+              <button class="btn-secondary btn-danger w-full" style="margin-bottom:8px" onclick="clearAllFixtures()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg> Clear All Fixtures</button>
+              <button class="btn-secondary btn-danger w-full" onclick="clearAllResults()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg> Clear All Results + Reset Stats</button>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /acc-grid -->
+    </section><!-- /admin-tab -->
+
+  </div><!-- /main-content -->
+</div><!-- /app -->
+
+<!-- html2canvas -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<!-- App scripts (order matters) -->
+<script src="js/config.js"></script>
+<script src="js/state.js"></script>
+<script src="js/api.js"></script>
+<script src="js/discord.js"></script>
+<script src="js/themes.js"></script>
+<script src="js/players.js"></script>
+<script src="js/fixtures.js"></script>
+<script src="js/results.js"></script>
+<script src="js/standings.js"></script>
+<script src="js/calendar.js"></script>
+<script src="js/ocr.js"></script>
+<script src="js/admin.js"></script>
+<script src="js/app.js"></script>
+
+<!-- ── Wiring: submit wrappers + lightbox + accordion ── -->
+<script>
+  // Form submit wrappers
+  function submitLogScore() { logScore(); }
+  function submitGenerateFixtures() {
+    const mode = document.querySelector('[name="gen-mode"]:checked')?.value || 'home-away';
+    const date = document.getElementById('gen-start-date')?.value || null;
+    generateFixtures(mode, date);
+  }
+  function submitAddPlayer() {
+    addPlayer(
+      document.getElementById('newPlayerName')?.value,
+      document.getElementById('newPlayerUsername')?.value,
+      document.getElementById('newPlayerPhone')?.value
+    );
+  }
+  function submitAddManualFixture() {
+    addManualFixture(
+      document.getElementById('manualHome')?.value?.trim(),
+      document.getElementById('manualAway')?.value?.trim(),
+      document.getElementById('manualDate')?.value || null
+    );
+  }
+  function importPlayersFromFile() {
+    const input = document.getElementById('playerImport');
+    const file  = input?.files?.[0];
+    if (!file) { toast('Select a .txt file first.', 'error'); return; }
+    const reader = new FileReader();
+    reader.onload = e => importPlayersFromText(e.target.result);
+    reader.readAsText(file);
+    input.value = '';
+  }
+
+  // Accordion
+  function toggleAccordion(id) {
+    const body = document.getElementById(id);
+    if (!body) return;
+    body.classList.toggle('acc-open');
+  }
+
+  // Lightbox
+  function openLightbox(src) {
+    const lb  = document.getElementById('lightbox');
+    const img = document.getElementById('lightbox-img');
+    if (!lb || !img) return;
+    img.src = src;
+    lb.classList.add('active');
+  }
+  function closeLightbox() {
+    document.getElementById('lightbox')?.classList.remove('active');
+    document.getElementById('lightbox-img').src = '';
+  }
+  document.getElementById('lightbox')?.addEventListener('click', e => {
+    if (e.target.id === 'lightbox') closeLightbox();
+  });
+
+  // Edit result close alias
+  function closeEditResultModal() {
+    document.getElementById('edit-result-modal')?.classList.remove('active');
+  }
+
+  // renderStandings alias
+  function renderStandings() { if (typeof renderLeaderboard === 'function') renderLeaderboard(); }
+
+  // Player count badge
+  function updatePlayerCount() {
+    const el = document.getElementById('player-count-label');
+    if (el) el.textContent = State.players.length;
+  }
+
+  // Nav click handler
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.getAttribute('data-tab').replace('-tab', '');
+      showTab(tab);
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
+  // File input display
+  document.getElementById('playerImport')?.addEventListener('change', function() {
+    document.getElementById('file-chosen').textContent = this.files[0]?.name || 'No file chosen';
+  });
+  document.getElementById('whatsappImageInput')?.addEventListener('change', function() {
+    document.getElementById('whatsapp-file-chosen').textContent = this.files[0]?.name || 'No file';
+  });
+</script>
+
+<!-- ═══ EXPORT POSTERS ═══ -->
+<div id="fixture-capture-area" class="export-poster" style="position:absolute;top:0;left:-9999px;z-index:-1;visibility:hidden;">
+  <div class="poster-top-bar"></div>
+  <div class="poster-header"><div class="poster-logo-text">METTLESTATE</div><div class="poster-title">MATCHDAY FIXTURES</div><div id="poster-fixture-sub" class="poster-sub">EA FC MOBILE LEAGUE</div></div>
+  <div id="poster-fixture-list" class="poster-match-list"></div>
+  <div class="poster-footer"><span>#Mettlestate x League</span><span></span></div>
+  <div class="poster-bottom-bar"></div>
+</div>
+
+<div id="lb-capture-area" class="export-poster" style="position:absolute;top:0;left:-9999px;z-index:-1;visibility:hidden;">
+  <div class="poster-top-bar"></div>
+  <div class="poster-header"><div class="poster-logo-text">METTLESTATE</div><div class="poster-title">LEAGUE STANDINGS</div><div id="poster-lb-sub" class="poster-sub">EA FC MOBILE LEAGUE</div></div>
+  <div id="poster-lb-table" class="poster-lb-content"></div>
+  <div class="poster-footer"><span>#MettlestateLeague</span><span>@Astral Reign</span></div>
+  <div class="poster-bottom-bar"></div>
+</div>
+
+<div id="rules-capture-area" class="export-poster" style="position:absolute;top:0;left:-9999px;z-index:-1;visibility:hidden;padding-bottom:20px;">
+  <div class="poster-top-bar"></div>
+  <div class="poster-header"><div class="poster-logo-text">METTLESTATE</div><div class="poster-title">LEAGUE RULES</div><div id="poster-rules-sub" class="poster-sub">EA FC MOBILE LEAGUE</div></div>
+  <div id="poster-rules-content" style="padding:30px 50px;color:#fff;font-size:.9rem;line-height:1.6;"></div>
+  <div class="poster-footer"><span>#MettlestateLeague</span><span>@Astral Reign</span></div>
+  <div class="poster-bottom-bar"></div>
+</div>
+
+</body>
+</html>
