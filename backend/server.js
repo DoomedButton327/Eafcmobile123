@@ -143,19 +143,29 @@ async function start() {
   try {
     await initSchema();
 
-    // Create default owner account if no users exist
+    const username    = (process.env.OWNER_USERNAME     || 'tyron').toLowerCase();
+    const password    = process.env.OWNER_PASSWORD      || 'change-this-password';
+    const displayName = process.env.OWNER_DISPLAY_NAME  || 'Owner';
+
     const { rows } = await query('SELECT COUNT(*) AS cnt FROM users');
+
     if (parseInt(rows[0].cnt) === 0) {
-      const username     = (process.env.OWNER_USERNAME || 'tyron').toLowerCase();
-      const password     = process.env.OWNER_PASSWORD  || 'change-this-password';
-      const displayName  = process.env.OWNER_DISPLAY_NAME || 'Owner';
+      // First boot — create owner account
       const hash = await bcrypt.hash(password, 12);
       await query(
         'INSERT INTO users (username, display_name, password_hash, role) VALUES ($1,$2,$3,$4)',
         [username, displayName, hash, 'owner']
       );
       console.log(`[Setup] Owner account created → username: "${username}"`);
-      console.log('[Setup] ⚠  Change the password immediately via Admin → Staff → Change Password');
+    } else if (process.env.OWNER_PASSWORD) {
+      // OWNER_PASSWORD env var is set — always sync it to the DB.
+      // This lets you reset the password by setting the env var and redeploying.
+      const hash = await bcrypt.hash(password, 12);
+      await query(
+        'UPDATE users SET password_hash = $1, display_name = $2 WHERE username = $3 AND role = $4',
+        [hash, displayName, username, 'owner']
+      );
+      console.log(`[Setup] Owner password synced from OWNER_PASSWORD env var → username: "${username}"`);
     }
 
     app.listen(PORT, () => {
